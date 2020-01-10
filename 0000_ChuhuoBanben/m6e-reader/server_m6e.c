@@ -23,6 +23,9 @@
 #define TMR_SR_MAX_PACKET_SIZE 256
 #define FILENAME "/root/upgrade_temp.bin"
 
+//0 disable use wifi
+#define USEWIFI 1
+
 
 static int server_fd = -1;
 static int client_fd = -1;
@@ -584,6 +587,44 @@ int anetKeepAlive(int fd, int interval)
 
 }
 
+char cmdbuf[256] = {0};
+
+/** 
+ * [m6e_pthread_wifi ????wifi]
+ * @Author   YY
+ * @DateTime 2019?��5??15??T9:29:43+0800
+ * @param    arg                      [description]
+ */
+void*m6e_pthread_wifi(void *arg)
+{
+	int wifiMode = 0;
+	char ssid[64]= {0};
+	char passwd[64]= {0};	
+
+	sysSettingGetInt("wifiMode",&wifiMode,0);
+	sysSettingGetString("wifi",ssid,64,0);
+	sysSettingGetString("wifiwd",passwd,64,0);
+
+	printf("wifiMode=[%d]\n",wifiMode);
+	
+	if(0 == wifiMode)
+	{
+		sprintf(cmdbuf, "sta.sh %s %s",ssid,passwd);
+		printf("%s\n", cmdbuf);
+		system(cmdbuf);
+		//system("ps>sta.txt");
+	}
+	else if(1 == wifiMode)
+	{
+		system("2g_ap_mode.sh");
+	}
+	else if(2 == wifiMode)
+	{
+		system("5g_ap_mode.sh");
+	}
+	printf("=======wifi pthread exit=========\n");
+}
+
 
 void*m6e_pthread_client(void *arg)
 {
@@ -807,6 +848,20 @@ int m6e_start(void)
         server_fd = -1;
         return -1;
     }
+
+	#ifdef USEWIFI
+	if(USEWIFI == 1)
+	{
+		printf("### USEWIFI= %d\n", USEWIFI);
+		pthread_t stbmonitor_pthread2 = 0;
+		pthread_attr_t tattr2;
+		pthread_attr_init(&tattr2);
+		pthread_attr_setdetachstate(&tattr2, PTHREAD_CREATE_DETACHED);
+		pthread_create(&stbmonitor_pthread2, &tattr2, m6e_pthread_wifi, NULL);
+	}
+#else
+	plog("$$$ No define USEWIFI= %d\n", USEWIFI);
+#endif
 
     while(1) {
         len = sizeof(tcp_addr);
